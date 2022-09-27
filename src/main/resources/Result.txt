@@ -1,16 +1,18 @@
+First secret key: DEFGHIJKLMNOPQ
 First Matrix: 
-D E F G A 
-B C H I K 
-L M N O P 
-Q R S T U 
+D E F G H 
+I K L M N 
+O P Q A B 
+C R S T U 
 V W X Y Z 
 
+Second secret key: RSTUVWXYZ
 Second Matrix: 
-H I K L M 
-N O P Q R 
-S T U V W 
-X Y Z A B 
-C D E F G 
+R S T U V 
+W X Y Z A 
+B C D E F 
+G H I K L 
+M N O P Q 
 
 Text before encode: 
 Text after encode:  

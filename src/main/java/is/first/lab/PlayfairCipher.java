@@ -43,9 +43,11 @@ public class PlayfairCipher {
             String data = IOUtils.toString(fis, StandardCharsets.UTF_8).trim();
 
             firstMatrixPositions = createTable(firstKey, firstMatrix);
+            ops.write(("First secret key: " + firstKey + "\n").getBytes(StandardCharsets.UTF_8));
             ops.write(getMatrixString("First Matrix: ", firstMatrix).toString().getBytes(StandardCharsets.UTF_8));
 
             secondMatrixPositions = createTable(secondKey, secondMatrix);
+            ops.write(("Second secret key: " + secondKey + "\n").getBytes(StandardCharsets.UTF_8));
             ops.write(getMatrixString("Second Matrix: ", secondMatrix).toString().getBytes(StandardCharsets.UTF_8));
 
             ops.write(("Text before encode: " + prepareText(data) + "\n").getBytes(StandardCharsets.UTF_8));
