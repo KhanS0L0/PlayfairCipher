@@ -7,30 +7,19 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
+import java.util.Arrays;
 
 public class PlayfairCipher {
 
-    private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-    private static final int size = 5;
-    private static final int randomNumber = getRandomNumber(size, ALPHABET.length() - size);
-
-    private static final char[][] firstMatrix = new char[size][size];
-
-    private static final String firstKey = ALPHABET.substring(3, randomNumber);
-
-    private static final char[][] secondMatrix = new char[size][size];
-
-    private static final String secondKey = ALPHABET.substring(randomNumber);
-
+    private static final String RUSSIAN_ALPHABET = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ-./";
+    private static final int SIZE_FOR_RUSSIAN_ALPHABET = 6;
+    private static final int randomNumber = getRandomNumber(RUSSIAN_ALPHABET.length() - SIZE_FOR_RUSSIAN_ALPHABET);
+    private static final char[][] firstMatrix = new char[SIZE_FOR_RUSSIAN_ALPHABET][SIZE_FOR_RUSSIAN_ALPHABET];
+    private static final char[][] secondMatrix = new char[SIZE_FOR_RUSSIAN_ALPHABET][SIZE_FOR_RUSSIAN_ALPHABET];
+    private static final String firstKey = RUSSIAN_ALPHABET.substring(3, randomNumber);
+    private static final String secondKey = RUSSIAN_ALPHABET.substring(randomNumber);
     private static final String INPUT_FILE_PATH = "src/main/resources/Init.txt";
-
     private static final String OUTPUT_FILE_PATH = "src/main/resources/Result.txt";
-
-    private static Point[] firstMatrixPositions;
-
-    private static Point[] secondMatrixPositions;
-
 
     public static void main(String[] args) throws IOException {
         FileInputStream fis = null;
@@ -41,21 +30,28 @@ public class PlayfairCipher {
             ops = new FileOutputStream(OUTPUT_FILE_PATH);
 
             String data = IOUtils.toString(fis, StandardCharsets.UTF_8).trim();
+            String result;
+            data = prepareText(data);
+            String[] bigrams = createBigrams(data);
 
-            firstMatrixPositions = createTable(firstKey, firstMatrix);
+            createTable(firstKey, firstMatrix);
             ops.write(("First secret key: " + firstKey + "\n").getBytes(StandardCharsets.UTF_8));
             ops.write(getMatrixString("First Matrix: ", firstMatrix).toString().getBytes(StandardCharsets.UTF_8));
 
-            secondMatrixPositions = createTable(secondKey, secondMatrix);
+            createTable(secondKey, secondMatrix);
             ops.write(("Second secret key: " + secondKey + "\n").getBytes(StandardCharsets.UTF_8));
             ops.write(getMatrixString("Second Matrix: ", secondMatrix).toString().getBytes(StandardCharsets.UTF_8));
 
-            ops.write(("Text before encode: " + prepareText(data) + "\n").getBytes(StandardCharsets.UTF_8));
-            data = encode(new StringBuilder(prepareText(data)));
-            ops.write(("Text after encode:  " + data + "\n").getBytes(StandardCharsets.UTF_8));
+            ops.write(("Text before encode: " + data + "\n").getBytes(StandardCharsets.UTF_8));
+            ops.write(("Bigrams: " + Arrays.toString(bigrams) + "\n").getBytes(StandardCharsets.UTF_8));
 
-            data = encode(new StringBuilder(prepareText(data)));
-            ops.write(("Text after decode:  " + data + "\n").getBytes(StandardCharsets.UTF_8));
+            result = encode(bigrams);
+            ops.write(("Text after encode:  " + result + "\n").getBytes(StandardCharsets.UTF_8));
+
+            String[] resultBigrams = createBigrams(result);
+            result = encode(createBigrams(result));
+            ops.write(("Bigrams of encoded text: " + Arrays.toString(resultBigrams) + "\n").getBytes(StandardCharsets.UTF_8));
+            ops.write(("Text after decode:  " + result + "\n").getBytes(StandardCharsets.UTF_8));
 
         } catch (IOException e) {
             System.err.println("SOMETHING WENT WRONG");
@@ -74,78 +70,84 @@ public class PlayfairCipher {
      * Так как в латинице 26 букв мы объединяем I и J
      * */
     private static String prepareText(String str) {
-        return str.toUpperCase().replaceAll("[^A-Z]", "").replace("J", "I");
+        str = str.toUpperCase().trim().replaceAll("[^А-Я-./]", "");
+        if(str.length() % 2 != 0){
+            str = str + ".";
+        }
+        return str;
+    }
+
+    /*
+    * Метод для разбития строки на массив биграмм
+    * */
+    private static String[] createBigrams(String str){
+        String[] array = new String[str.length()/2];
+        for (int i = 0, k = 0; i < str.length(); i = i + 2){
+            array[k] = str.substring(i, i+2);
+            k++;
+        }
+        return array;
     }
 
     /**
-     * Заполнение матрицы буквами 5 на 5
+     * Заполнение матрицы буквами 6 на 6
      * В цикле идет побуквенное заполнение матрицы слева на право
      * В случае если есть совпадение(дупликация) мы пропускаем букву и идет дальше
      * Так же запоминаются все позиции символов
      * */
-    private static Point[] createTable(String key, char[][] charTable) {
-        Point[] positions = new Point[26];
-
-        String str = prepareText(key + ALPHABET);
-
-        for (int i = 0, k = 0; i < str.length(); i++) {
-            char element = str.charAt(i);
-            if (positions[element - 'A'] == null) {
-                charTable[k / size][k % size] = element;
-                positions[element - 'A'] = new Point(k % size, k / size);
-                k++;
+    private static void createTable(String key, char[][] charTable) {
+        String newAlphabet = cutAndInsert(key);
+        int charIndex = 0;
+        for (int i = 0; i < charTable.length; i++){
+            for (int j = 0; j < charTable[i].length; j++){
+                charTable[i][j] = newAlphabet.charAt(charIndex);
+                charIndex++;
             }
         }
-        return positions;
     }
 
     /**
      * Метод шифрования текста
      * */
-    private static String encode(StringBuilder text){
-        for (int i = 0; i < text.length(); i += 2)
-            if (i == text.length() - 1) text.append(text.length() % 2 == 1 ? 'X' : "");
+    private static String encode(String[] bigrams){
+        StringBuilder result = new StringBuilder();
+        for (String bigram : bigrams) {
 
-        for(int i = 0; i < text.length(); i +=2){
-            char a = text.charAt(i);
-            char b = text.charAt(i+1);
+            char first = bigram.charAt(0);
+            char second = bigram.charAt(1);
 
-            int row1 = firstMatrixPositions[a - 'A'].y;
-            int column1 = firstMatrixPositions[a - 'A'].x;
+            Point firstPosition = findPositions(firstMatrix, first);
+            System.out.println("first position: " + firstPosition);
+            Point secondPosition = findPositions(secondMatrix, second);
+            System.out.println("second position: " + secondPosition);
 
-            int row2 = secondMatrixPositions[b - 'A'].y;
-            int column2 = secondMatrixPositions[b - 'A'].x;
-
-            if(column1 == column2){
-                int temp = row1;
-                row1 = row2;
-                row2 = temp;
-            }else{
-                int temp = column1;
-                column1 = column2;
-                column2 = temp;
+            if(firstPosition.getX() != secondPosition.getX()){
+                result.append(firstMatrix[(int) firstPosition.getY()][(int) secondPosition.getX()]);
+                result.append(secondMatrix[(int) secondPosition.getY()][(int) firstPosition.getX()]);
             }
-
-            text.setCharAt(i, firstMatrix[row1][column1]);
-            text.setCharAt(i + 1, secondMatrix[row2][column2]);
+            else if(firstPosition.getX() == secondPosition.getX()){
+                result.append(firstMatrix[(int) secondPosition.getY()][(int) secondPosition.getX()]);
+                result.append(secondMatrix[(int) firstPosition.getY()][(int) firstPosition.getX()]);
+            }
         }
-        return text.toString();
+
+
+        return result.toString();
     }
 
     /**
      * Генерируем случайное число в пределах от min до max
      * */
-    public static int getRandomNumber(int min, int max) {
+    private static int getRandomNumber(int max) {
         Random random = new Random();
-        return random.ints(min, max)
-                .findFirst()
-                .getAsInt();
+        return random.ints(PlayfairCipher.SIZE_FOR_RUSSIAN_ALPHABET, max)
+                .findFirst().orElseThrow(RuntimeException::new);
     }
 
     /**
      * Простой вывод двумерных символьных массивов
      * */
-    public static StringBuilder getMatrixString(String prefix, char[][] array){
+    private static StringBuilder getMatrixString(String prefix, char[][] array){
         StringBuilder sb = new StringBuilder(prefix + "\n");
         for (char[] chars : array) {
             for (int j = 0; j < array.length; j++) {
@@ -154,5 +156,32 @@ public class PlayfairCipher {
             sb.append("\n");
         }
         return sb.append("\n");
+    }
+
+    /**
+     * Метод, чтобы вырезать подстроку и вставить в начало
+     * */
+    private static String cutAndInsert(String targetString){
+        String[] array =  PlayfairCipher.RUSSIAN_ALPHABET.split(targetString);
+        StringBuilder result = new StringBuilder();
+        result.append(targetString);
+        for (String s : array) {
+            result.append(s);
+        }
+        return result.toString();
+    }
+
+    /*
+    * Метод для поиска позиции символа в матрице
+    * */
+    private static Point findPositions(char[][] matrix, char symbol){
+        for(int i = 0; i < matrix.length; i++){
+            for(int j = 0; j < matrix.length; j++){
+                if(matrix[i][j] == symbol){
+                    return new Point(j, i);
+                }
+            }
+        }
+        throw new RuntimeException("Undefined symbol: " + symbol);
     }
 }
